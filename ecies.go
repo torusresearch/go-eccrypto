@@ -35,7 +35,7 @@ func Encrypt(pubkeyHex string, plainbytes []byte) (string, *EciesMetadata, error
 		return "", nil, errors.New("file exceeds the maximum file-size(lt 2G)")
 	}
 
-	// derive Share Secret
+	// derive shared secret
 	priv, err := GenerateKey()
 	if err != nil {
 		return "", nil, err
@@ -46,6 +46,9 @@ func Encrypt(pubkeyHex string, plainbytes []byte) (string, *EciesMetadata, error
 		return "", nil, err
 	}
 	shareSecret, err := priv.ECDH(pk)
+	if err != nil {
+		return "", nil, err
+	}
 
 	// generate iv
 	iv, err := randBytes(16)
@@ -99,7 +102,7 @@ func Decrypt(privateKeyHex string, cipherText string, t *EciesMetadata) (string,
 			return "", err
 		}
 
-		// derive Share Secret
+		// derive shared secret
 		ecdh, err := privKey.ECDH(epk)
 		if err != nil {
 			return "", err
@@ -117,6 +120,19 @@ func Decrypt(privateKeyHex string, cipherText string, t *EciesMetadata) (string,
 
 		ecdhHash := sha512.Sum512(ecdh[1:])
 		encryptionKey := ecdhHash[:32]
+		macKey := ecdhHash[32:]
+
+		// Construct the buffer over which the MAC was originally calculated:
+		// IV (16) + Uncompressed EphemPubKey (65) + Ciphertext
+		macData := make([]byte, 0)
+		macData = append(macData, ivBytes...)
+		macData = append(macData, epk.Bytes(false)...)
+		macData = append(macData, cipherBytes...)
+		mac := getHmacCode(macKey, macData)
+		if mac != t.Mac {
+			return "", errors.New("invalid mac hash")
+		}
+
 		plaintext, e := aesCBCDec(encryptionKey, cipherBytes, ivBytes)
 		if e != nil {
 			return "", err
