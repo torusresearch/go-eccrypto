@@ -1,4 +1,4 @@
-module github.com/TRON-US/go-eccrypto
+module github.com/torusresearch/go-eccrypto
 
 go 1.13
 
