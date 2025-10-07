@@ -2,9 +2,10 @@ package go_eccrypto
 
 import (
 	"crypto/sha256"
+	"io"
+
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/hkdf"
-	"io"
 )
 
 func kdf(secret []byte) (key []byte, err error) {
@@ -17,10 +18,12 @@ func kdf(secret []byte) (key []byte, err error) {
 	return key, nil
 }
 
-func zeroPad(b []byte, leigth int) []byte {
-	for i := 0; i < leigth-len(b); i++ {
-		b = append([]byte{0x00}, b...)
+func zeroPad(b []byte, length int) []byte {
+	if len(b) >= length {
+		return b
 	}
 
-	return b
+	padded := make([]byte, length)
+	copy(padded[length-len(b):], b)
+	return padded
 }
